@@ -14,6 +14,7 @@ export function apiError(error: unknown) {
   if (error instanceof Error && error.message === "FORBIDDEN") return json({ error: "ليست لديك صلاحية لهذا الإجراء" }, 403);
   if (error instanceof Error && error.message === "NOT_FOUND") return json({ error: "العنصر غير موجود" }, 404);
   if (error instanceof Error && error.message === "RATE_LIMITED") return json({ error: "محاولات كثيرة. يرجى الانتظار والمحاولة لاحقًا." }, 429);
+  if (error instanceof Error && error.message === "CANNOT_DISABLE_LAST_ADMIN") return json({ error: "لا يمكن تعطيل آخر مسؤول نشط في البلدية." }, 409);
   console.error("API error", error);
   return json({ error: "تعذر إتمام الطلب" }, 500);
 }
