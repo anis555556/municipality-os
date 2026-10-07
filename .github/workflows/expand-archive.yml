@@ -1,0 +1,66 @@
+name: Expand uploaded project archive
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  expand:
+    if: ${{ !contains(github.event.head_commit.message, 'expand Municipality OS archive') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find archive
+        id: archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="$(find . -maxdepth 1 -type f -iname '*.zip' -print -quit)"
+          if [ -z "$archive" ]; then
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "found=true" >> "$GITHUB_OUTPUT"
+          echo "archive=$archive" >> "$GITHUB_OUTPUT"
+
+      - name: Expand archive
+        if: steps.archive.outputs.found == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="${{ steps.archive.outputs.archive }}"
+          work="$(mktemp -d)"
+          unzip -q "$archive" -d "$work"
+
+          shopt -s dotglob nullglob
+          entries=( "$work"/* )
+
+          if [ "${#entries[@]}" -eq 1 ] && [ -d "${entries[0]}" ]; then
+            src="${entries[0]}"
+          else
+            src="$work"
+          fi
+
+          find . -mindepth 1 -maxdepth 1 ! -name '.git' ! -name '.github' -exec rm -rf {} +
+          cp -a "$src"/. .
+          rm -f "$archive"
+          rm -rf "$work"
+
+      - name: Commit expanded project
+        if: steps.archive.outputs.found == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git commit -m "chore: expand Municipality OS archive"
+          git push
