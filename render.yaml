@@ -1,6 +1,6 @@
 databases:
   - name: municipality-os-db
-    plan: basic-256mb
+    plan: free
     postgresMajorVersion: "16"
     databaseName: municipality_os
     user: municipality_os
@@ -9,7 +9,7 @@ services:
   - type: web
     name: municipality-os
     runtime: docker
-    plan: starter
+    plan: free
     healthCheckPath: /api/health
     dockerCommand: sh -c "./node_modules/.bin/prisma migrate deploy && ./node_modules/.bin/prisma db seed && node server.js"
     envVars:
