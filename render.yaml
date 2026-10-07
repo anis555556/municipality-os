@@ -1,0 +1,25 @@
+databases:
+  - name: municipality-os-db
+    plan: basic-256mb
+    postgresMajorVersion: "16"
+    databaseName: municipality_os
+    user: municipality_os
+
+services:
+  - type: web
+    name: municipality-os
+    runtime: docker
+    plan: starter
+    healthCheckPath: /api/health
+    dockerCommand: sh -c "./node_modules/.bin/prisma migrate deploy && ./node_modules/.bin/prisma db seed && node server.js"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: municipality-os-db
+          property: connectionString
+      - key: AUTH_SECRET
+        generateValue: true
+      - key: DEFAULT_MUNICIPALITY_SLUG
+        value: al-bureij
+      - key: NEXT_PUBLIC_APP_URL
+        sync: false

@@ -1,0 +1,17 @@
+node_modules/
+.next/
+out/
+build/
+dist/
+.env
+.env.*
+!.env.example
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+coverage/
+*.tsbuildinfo
+*.pem
+*.key
+prisma/*.db
+uploads/

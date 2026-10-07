@@ -1,0 +1,456 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  EDITOR
+  STAFF
+  CITIZEN
+}
+
+enum PublicationStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ServiceStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum RequestStatus {
+  NEW
+  UNDER_REVIEW
+  IN_PROGRESS
+  WAITING_CITIZEN
+  COMPLETED
+  REJECTED
+  CANCELLED
+}
+
+enum ComplaintStatus {
+  NEW
+  RECEIVED
+  PROCESSING
+  RESOLVED
+  REJECTED
+}
+
+enum ProjectStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  PAUSED
+}
+
+enum NotificationType {
+  REQUEST_UPDATE
+  COMPLAINT_UPDATE
+  APPOINTMENT
+  ANNOUNCEMENT
+  ALERT
+  GENERAL
+}
+
+enum AppointmentStatus {
+  REQUESTED
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+enum SurveyStatus {
+  DRAFT
+  OPEN
+  CLOSED
+}
+
+model Municipality {
+  id            String   @id @default(cuid())
+  name          String
+  slug          String   @unique
+  description   String   @default("")
+  logoUrl       String?
+  phone         String   @default("")
+  email         String   @default("")
+  address       String   @default("")
+  latitude      Float    @default(31.4394)
+  longitude     Float    @default(34.4032)
+  brandPrimary  String   @default("#D71920")
+  brandSecondary String  @default("#009B4D")
+  settings      Json     @default("{}")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  users         User[]
+  services      Service[]
+  requests      ServiceRequest[]
+  complaints    Complaint[]
+  projects      Project[]
+  facilities    Facility[]
+  news          News[]
+  events        Event[]
+  announcements Announcement[]
+  surveys       Survey[]
+  notifications Notification[]
+  appointments  Appointment[]
+  employees     Employee[]
+  auditLogs     AuditLog[]
+  uploads       Upload[]
+  proposals     Proposal[]
+}
+
+model User {
+  id            String       @id @default(cuid())
+  municipalityId String?
+  municipality  Municipality? @relation(fields: [municipalityId], references: [id], onDelete: Cascade)
+  email         String       @unique
+  phone         String       @default("")
+  name          String
+  passwordHash  String
+  role          Role         @default(CITIZEN)
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  sessions      Session[]
+  uploads       Upload[]
+  proposals     Proposal[]
+  requests      ServiceRequest[]
+  complaints    Complaint[]
+  notifications Notification[]
+  appointments  Appointment[]
+  surveyResponses SurveyResponse[]
+  employee      Employee?
+  @@index([municipalityId, role])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  @@index([expiresAt])
+}
+
+model Service {
+  id             String        @id @default(cuid())
+  municipalityId String
+  municipality   Municipality  @relation(fields: [municipalityId], references: [id], onDelete: Cascade)
+  slug           String
+  name           String
+  category       String
+  description    String
+  requirements   String[]      @default([])
+  documents      String[]      @default([])
+  steps          String[]      @default([])
+  durationDays   Int           @default(5)
+  feeIls         Int           @default(0)
+  status         ServiceStatus @default(ACTIVE)
+  icon           String        @default("✦")
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  requests       ServiceRequest[]
+  @@unique([municipalityId, slug])
+  @@index([municipalityId, category, status])
+}
+
+model ServiceRequest {
+  id             String        @id @default(cuid())
+  municipalityId String
+  municipality   Municipality  @relation(fields: [municipalityId], references: [id], onDelete: Cascade)
+  serviceId      String
+  service        Service       @relation(fields: [serviceId], references: [id])
+  citizenId      String
+  citizen        User          @relation(fields: [citizenId], references: [id])
+  referenceNo    String        @unique
+  title          String
+  description    String        @default("")
+  status         RequestStatus @default(NEW)
+  payload        Json          @default("{}")
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  timeline       RequestEvent[]
+  @@index([municipalityId, status, createdAt])
+  @@index([citizenId, createdAt])
+}
+
+model RequestEvent {
+  id        String         @id @default(cuid())
+  requestId String
+  request   ServiceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  status    RequestStatus
+  message   String
+  actorId   String?
+  createdAt DateTime       @default(now())
+  @@index([requestId, createdAt])
+}
+
+model Complaint {
+  id             String          @id @default(cuid())
+  municipalityId String
+  municipality   Municipality    @relation(fields: [municipalityId], references: [id], onDelete: Cascade)
+  citizenId      String
+  citizen        User            @relation(fields: [citizenId], references: [id])
+  referenceNo    String          @unique
+  title          String
+  description    String
+  category       String
+  status         ComplaintStatus @default(NEW)
+  latitude       Float
+  longitude      Float
+  location       Unsupported("geometry(Point,4326)")?
+  imageUrls      String[]        @default([])
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  timeline       ComplaintEvent[]
+  @@index([municipalityId, status, createdAt])
+  @@index([citizenId, createdAt])
+}
+
+model ComplaintEvent {
+  id          String          @id @default(cuid())
+  complaintId String
+  complaint   Complaint       @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  status      ComplaintStatus
+  message     String
+  actorId     String?
+  createdAt   DateTime        @default(now())
+  @@index([complaintId, createdAt])
+}
+
+model Project {
+  id             String        @id @default(cuid())
+  municipalityId String
+  municipality   Municipality  @relation(fields: [municipalityId], references: [id], onDelete: Cascade)
+  slug           String
+  name           String
+  description    String
+  imageUrl       String?
+  latitude       Float
+  longitude      Float
+  location       Unsupported("geometry(Point,4326)")?
+  progress       Int           @default(0)
+  status         ProjectStatus @default(PLANNED)
+  startsAt       DateTime?
+  endsAt         DateTime?
+  budgetIls      Int           @default(0)
+  contractor     String       @default("")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  @@unique([municipalityId, slug])
+  @@index([municipalityId, status])
+}
+
+model Facility {
+  id             String       @id @default(cuid())
+  municipalityId String
+  municipality   Municipality @relation(fields: [municipalityId], references: [id], onDelete: Cascade)
+  slug           String
+  name           String
+  category       String
+  description    String       @default("")
+  address        String       @default("")
+  latitude       Float
+  longitude      Float
+  location       Unsupported("geometry(Point,4326)")?
+  hours          String       @default("الأحد–الخميس، 08:00–15:00")
+  phone          String       @default("")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  @@unique([municipalityId, slug])
+  @@index([municipalityId, category])
+}
+
+model News {
+  id             String            @id @default(cuid())
+  municipalityId String
+  municipality   Municipality      @relation(fields: [municipalityId], references: [id], onDelete: Cascade)
+  slug           String
+  title          String
+  excerpt        String
+  body           String
+  imageUrl       String?
+  status         PublicationStatus @default(DRAFT)
+  publishedAt    DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  @@unique([municipalityId, slug])
+  @@index([municipalityId, status, publishedAt])
+}
+
+model Event {
+  id             String            @id @default(cuid())
+  municipalityId String
+  municipality   Municipality      @relation(fields: [municipalityId], references: [id], onDelete: Cascade)
+  slug           String
+  title          String
+  description    String
+  locationName   String
+  latitude       Float?
+  longitude      Float?
+  startsAt       DateTime
+  endsAt         DateTime?
+  status         PublicationStatus @default(DRAFT)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  @@unique([municipalityId, slug])
+  @@index([municipalityId, status, startsAt])
+}
+
+model Announcement {
+  id             String            @id @default(cuid())
+  municipalityId String
+  municipality   Municipality      @relation(fields: [municipalityId], references: [id], onDelete: Cascade)
+  title          String
+  body           String
+  priority       String            @default("NORMAL")
+  status         PublicationStatus @default(DRAFT)
+  publishedAt    DateTime?
+  expiresAt      DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  @@index([municipalityId, status, publishedAt])
+}
+
+model Survey {
+  id             String       @id @default(cuid())
+  municipalityId String
+  municipality   Municipality @relation(fields: [municipalityId], references: [id], onDelete: Cascade)
+  title          String
+  description    String
+  status         SurveyStatus @default(DRAFT)
+  endsAt         DateTime?
+  options        SurveyOption[]
+  responses      SurveyResponse[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  @@index([municipalityId, status])
+}
+
+model SurveyOption {
+  id       String   @id @default(cuid())
+  surveyId String
+  survey   Survey   @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  label    String
+  responses SurveyResponse[]
+}
+
+model SurveyResponse {
+  id        String       @id @default(cuid())
+  surveyId  String
+  survey    Survey       @relation(fields: [surveyId], references: [id], onDelete: Cascade)
+  optionId  String
+  option    SurveyOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime     @default(now())
+  @@unique([surveyId, userId])
+}
+
+model Proposal {
+  id             String       @id @default(cuid())
+  municipalityId String
+  municipality   Municipality @relation(fields: [municipalityId], references: [id], onDelete: Cascade)
+  citizenId      String
+  citizen        User         @relation(fields: [citizenId], references: [id], onDelete: Cascade)
+  title          String
+  body           String
+  category       String
+  status         String       @default("RECEIVED")
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  @@index([municipalityId, status, createdAt])
+  @@index([citizenId, createdAt])
+}
+
+model Notification {
+  id             String           @id @default(cuid())
+  municipalityId String
+  municipality   Municipality     @relation(fields: [municipalityId], references: [id], onDelete: Cascade)
+  userId         String?
+  user           User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title          String
+  body           String
+  type           NotificationType @default(GENERAL)
+  readAt         DateTime?
+  createdAt      DateTime         @default(now())
+  @@index([municipalityId, userId, createdAt])
+}
+
+model Appointment {
+  id             String            @id @default(cuid())
+  municipalityId String
+  municipality   Municipality      @relation(fields: [municipalityId], references: [id], onDelete: Cascade)
+  citizenId      String
+  citizen        User              @relation(fields: [citizenId], references: [id], onDelete: Cascade)
+  serviceName    String
+  referenceNo    String            @unique
+  startsAt       DateTime
+  status         AppointmentStatus @default(REQUESTED)
+  notes          String            @default("")
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  @@index([municipalityId, status, startsAt])
+  @@index([citizenId, startsAt])
+}
+
+model Employee {
+  id             String       @id @default(cuid())
+  municipalityId String
+  municipality   Municipality @relation(fields: [municipalityId], references: [id], onDelete: Cascade)
+  userId         String?      @unique
+  user           User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name           String
+  department     String
+  title          String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  @@index([municipalityId, department])
+}
+
+model AuditLog {
+  id             String       @id @default(cuid())
+  municipalityId String?
+  municipality   Municipality? @relation(fields: [municipalityId], references: [id], onDelete: SetNull)
+  actorId        String?
+  action         String
+  entity         String
+  entityId       String?
+  metadata       Json         @default("{}")
+  ipAddress      String?
+  createdAt      DateTime     @default(now())
+  @@index([municipalityId, createdAt])
+  @@index([actorId, createdAt])
+}
+
+model Upload {
+  id             String       @id @default(cuid())
+  municipalityId String
+  municipality   Municipality @relation(fields: [municipalityId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fileName       String
+  mimeType       String
+  sizeBytes      Int
+  data           Bytes
+  createdAt      DateTime     @default(now())
+  @@index([municipalityId, userId, createdAt])
+}
+
+model RateLimitBucket {
+  bucketKey String   @id
+  count     Int      @default(0)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([expiresAt])
+}

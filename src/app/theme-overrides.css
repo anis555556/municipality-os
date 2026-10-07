@@ -1,0 +1,4 @@
+.site-root{--red:var(--municipal-red,#D71920);--green:var(--municipal-green,#009B4D)}
+.maplibregl-ctrl-top-left{top:52px!important;left:10px!important}
+.tenant-switcher{max-width:128px;height:30px;border:1px solid #e2e8e3;background:white;color:#34443d;font-size:8px;padding:0 5px}
+.hero-map-label .map-open-arrow{margin-right:auto;width:25px;height:25px;border:1px solid #ffffff42;display:grid;place-items:center;font-size:12px}

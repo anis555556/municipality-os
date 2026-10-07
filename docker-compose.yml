@@ -1,0 +1,33 @@
+services:
+  database:
+    image: postgis/postgis:16-3.4
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: municipality_os
+      POSTGRES_USER: municipality
+      POSTGRES_PASSWORD: municipality
+    ports:
+      - "5432:5432"
+    volumes:
+      - municipality_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U municipality -d municipality_os"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      database:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://municipality:municipality@database:5432/municipality_os?schema=public
+      AUTH_SECRET: ${AUTH_SECRET:?Set AUTH_SECRET in .env}
+      DEFAULT_MUNICIPALITY_SLUG: al-bureij
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+    ports:
+      - "3000:3000"
+    command: sh -c "./node_modules/.bin/prisma migrate deploy && ./node_modules/.bin/prisma db seed && node server.js"
+volumes:
+  municipality_data:

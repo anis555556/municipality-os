@@ -1,0 +1,12 @@
+"use client";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import { demoServices } from "@/lib/demo-data";
+import type { CityService } from "@/types";
+export default function ServicesIndex() {
+  const [services, setServices] = useState<CityService[]>(demoServices); const [category, setCategory] = useState("الكل"); const [query, setQuery] = useState("");
+  useEffect(() => { fetch("/api/services").then((r) => r.ok ? r.json() : null).then((r) => { if (Array.isArray(r?.data)) setServices(r.data.map((x: Record<string, unknown>) => ({ id: String(x.id), slug: String(x.slug), name: String(x.name), category: String(x.category), description: String(x.description), duration: `${x.durationDays || 5} أيام عمل`, fee: Number(x.feeIls) ? "رسوم تجريبية" : "دون رسوم تجريبية", status: String(x.status) as CityService["status"], requirements: x.requirements as string[], steps: x.steps as string[], icon: String(x.icon || "✦") }))); }).catch(() => undefined); }, []);
+  const categories = useMemo(() => ["الكل", ...Array.from(new Set(services.map((service) => service.category)))], [services]);
+  const visible = useMemo(() => services.filter((service) => (category === "الكل" || service.category === category) && `${service.name} ${service.category} ${service.description}`.includes(query.trim())), [services, category, query]);
+  return <><div className="content-toolbar"><div><h2>دليل الخدمات</h2><p>إجراءات واضحة وخطوات قابلة للمتابعة عبر حسابك.</p></div><span className="demo-label">بيانات تجريبية</span></div><div className="form-field" style={{ maxWidth: 320, marginBottom: 14 }}><input aria-label="ابحث في الخدمات" placeholder="ابحث باسم الخدمة أو فئتها..." value={query} onChange={(e) => setQuery(e.target.value)} /></div><div className="filter-chips" style={{ marginBottom: 16 }}>{categories.map((value) => <button key={value} onClick={() => setCategory(value)} className={`filter-chip${category === value ? " active" : ""}`}>{value}</button>)}</div><div className="service-card-grid">{visible.map((service) => <article key={service.id} className="service-card"><span className="tile-number">{String(services.indexOf(service) + 1).padStart(2, "0")}</span><span className="tile-icon">{service.icon}</span><h3>{service.name}</h3><p>{service.description}</p><div className="service-card-bottom"><span>{service.duration} · {service.fee}</span><Link href={`/services/${service.slug}`}>تفاصيل الخدمة ←</Link></div></article>)}</div>{!visible.length && <div className="empty-state">لا توجد خدمة مطابقة لهذا البحث.</div>}</>;
+}
