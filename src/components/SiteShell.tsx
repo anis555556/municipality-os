@@ -12,7 +12,7 @@ export default function SiteShell({ children }: { children: ReactNode }) {
   const path = usePathname(); const router = useRouter(); const searchRef = useRef<HTMLDivElement>(null);
   const [profile, setProfile] = useState<MunicipalityProfile | null>(null); const [user, setUser] = useState<{ name: string; role: string } | null>(null); const [tenants, setTenants] = useState<{ id: string; name: string; slug: string }[]>([]); const [selectedTenant, setSelectedTenant] = useState("");
   const [query, setQuery] = useState(""); const [results, setResults] = useState<SearchResult[]>([]); const [searchOpen, setSearchOpen] = useState(false); const [accessOpen, setAccessOpen] = useState(false);
-  const [largeText, setLargeText] = useState(false); const [highContrast, setHighContrast] = useState(false); const [simplified, setSimplified] = useState(false); const [clock, setClock] = useState("");
+  const [largeText, setLargeText] = useState(false); const [highContrast, setHighContrast] = useState(false); const [simplified, setSimplified] = useState(false); const [clock, setClock] = useState(""); const [developerOpen, setDeveloperOpen] = useState(false);
   useEffect(() => {
     fetch("/api/municipality").then((response) => response.ok ? response.json() : null).then((result) => { if (result?.municipality) { setProfile(result.municipality); setSelectedTenant(result.municipality.slug); } }).catch(() => undefined);
     fetch("/api/auth/me").then((response) => response.ok ? response.json() : null).then((result) => { if (result?.user) { setUser(result.user); if (result.user.role === "SUPER_ADMIN") fetch("/api/municipalities").then((r) => r.ok ? r.json() : null).then((data) => setTenants(data?.data || [])).catch(() => undefined); } }).catch(() => undefined);
@@ -35,6 +35,23 @@ export default function SiteShell({ children }: { children: ReactNode }) {
   const theme = { "--municipal-red": profile?.brandPrimary || "#D71920", "--municipal-green": profile?.brandSecondary || "#009B4D" } as React.CSSProperties;
   function changeTenant(slug: string) { setSelectedTenant(slug); document.cookie = `municipality_tenant=${encodeURIComponent(slug)}; Path=/; SameSite=Lax${location.protocol === "https:" ? "; Secure" : ""}`; window.location.reload(); }
   return <div className="site-root" style={theme}>
+    <div style={{ position: "relative", zIndex: 30, display: "flex", justifyContent: "center", padding: "8px 16px", background: "#07111F", borderBottom: "1px solid rgba(255,255,255,.08)" }}>
+      <button
+        type="button"
+        onClick={() => setDeveloperOpen((open) => !open)}
+        aria-expanded={developerOpen}
+        aria-controls="developer-info"
+        style={{ border: 0, background: "transparent", color: "#F2C300", fontWeight: 700, fontSize: 13, cursor: "pointer", letterSpacing: ".02em" }}
+      >
+        من هو المطور؟
+      </button>
+      {developerOpen && (
+        <div id="developer-info" role="dialog" aria-label="Developer information" style={{ position: "absolute", top: "calc(100% + 8px)", left: "50%", transform: "translateX(-50%)", minWidth: 300, padding: "14px 18px", borderRadius: 14, background: "rgba(7,17,31,.96)", border: "1px solid rgba(242,195,0,.35)", boxShadow: "0 18px 50px rgba(0,0,0,.3)", textAlign: "center", direction: "ltr" }}>
+          <strong style={{ display: "block", color: "#FFFFFF", fontSize: 14 }}>Developer of this program</strong>
+          <span style={{ display: "block", marginTop: 5, color: "#F2C300", fontSize: 15, fontWeight: 700 }}>Anis Ali Al-Shashniya</span>
+        </div>
+      )}
+    </div>
     <div className="demo-ribbon"><span>●</span> بيئة تشغيل تجريبية — بيانات وخدمات توضيحية <b>DEMO</b></div>
     <header className="site-header">
       <Link href="/" className="brand" aria-label="العودة إلى الرئيسية"><span className="brand-mark">{profile?.logoUrl ? <img src={profile.logoUrl} alt="" /> : <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M5 34 24 7l19 27v8H5z" fill="none" stroke="currentColor" strokeWidth="2"/><path d="M12 33h24M17 26h14M21 19h6M22 42V31h5v11" fill="none" stroke="currentColor" strokeWidth="2"/></svg>}</span><span className="brand-copy"><strong>{profile?.name || "بلدية البريج"}</strong><small>MUNICIPALITY OS <i>●</i> SMART CITY</small></span></Link>
