@@ -62,7 +62,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ re
     else if (resource === "proposals") data = z.object({ status: z.enum(["RECEIVED", "REVIEWING", "ACCEPTED", "DECLINED"]) }).parse(picked);
     else if (resource === "appointments") data = z.object({ status: z.enum(["REQUESTED", "CONFIRMED", "COMPLETED", "CANCELLED"]).optional(), startsAt: z.coerce.date().optional(), notes: z.string().max(1000).optional() }).parse(picked);
     else if (resource === "notifications") data = { ...validateResourceData(resource, picked, true) as Record<string, unknown>, ...(picked.readAt !== undefined ? { readAt: picked.readAt === null ? null : z.coerce.date().parse(picked.readAt) } : {}) };
-    else if (resource === "users") { const input = z.object({ name: z.string().trim().min(2).max(120).optional(), email: z.email().max(254).transform((value) => value.toLowerCase()).optional(), phone: z.string().max(40).optional(), role: z.nativeEnum(Role).optional(), isActive: z.boolean().optional(), password: z.string().min(12).max(128).regex(/[A-Za-z]/).regex(/[0-9]/).optional() }).parse(picked); const { password, ...profile } = input; data = { ...profile, ...(password ? { passwordHash: await hash(password, 12) } : {}) }; }
+    else if (resource === "users") { const input = z.object({ name: z.string().trim().min(2).max(120).optional(), email: z.email().max(254).transform((value) => value.toLowerCase()).optional(), phone: z.string().max(40).optional(), role: z.nativeEnum(Role).optional(), isActive: z.boolean().optional(), password: z.string().min(12).max(128).regex(/[A-Za-z]/).regex(/[0-9]/).optional() }).parse(picked); const { password, ...profile } = input;
+      data = {
+        ...profile,
+        ...(password ? { passwordHash: await hash(password, 12) } : {}),
+        ...(profile.role === Role.SUPER_ADMIN ? { municipalityId: null } : profile.role !== undefined ? { municipalityId: municipality.id } : {})
+      }; }
     else data = validateResourceData(resource, picked, true) as Record<string, unknown>;
     if (resource === "notifications" && typeof data.userId === "string" && data.userId) {
       const target = await prisma.user.findFirst({ where: { id: data.userId, municipalityId: municipality.id }, select: { id: true } });
@@ -70,10 +75,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ re
     }
     if (resource === "users" && actor.role !== Role.SUPER_ADMIN && actor.role !== Role.ADMIN) throw new Error("FORBIDDEN");
     if (resource === "users" && data.role === Role.SUPER_ADMIN && actor.role !== Role.SUPER_ADMIN) throw new Error("FORBIDDEN");
+    if (resource === "users" && data.role === Role.ADMIN && actor.role !== Role.SUPER_ADMIN) throw new Error("FORBIDDEN");
     const existing = await delegate(model).findFirst({ where: { id, municipalityId: municipality.id } });
     if (!existing) return json({ error: "العنصر غير موجود" }, 404);
     if (actor.role === Role.CITIZEN && existing.userId !== actor.id) throw new Error("FORBIDDEN");
     if (resource === "users" && existing.id === actor.id && (data.role !== undefined || data.isActive === false)) throw new Error("FORBIDDEN");
+    if (resource === "users" && data.isActive === false && existing.role === Role.ADMIN) {
+      const activeAdmins = await prisma.user.count({ where: { municipalityId: municipality.id, role: Role.ADMIN, isActive: true } });
+      if (activeAdmins <= 1) throw new Error("CANNOT_DISABLE_LAST_ADMIN");
+    }
     let updated: Record<string, unknown>;
     if (resource === "surveys" && Array.isArray(data.options)) {
       const options = data.options as string[]; const surveyData = { ...data }; delete surveyData.options;
