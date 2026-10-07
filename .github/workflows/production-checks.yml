@@ -1,0 +1,29 @@
+name: Production checks
+
+on:
+  push:
+    branches: [main, production-hardening]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      AUTH_SECRET: ci-test-secret-012345678901234567890123456789012345
+      DEFAULT_MUNICIPALITY_SLUG: al-bureij
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      SEED_DEMO_DATA: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-audit --no-fund
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build

@@ -74,8 +74,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ res
       const email = emailSchema.parse(body.email); const password = passwordSchema.parse(body.password);
       const requestedRole = Object.values(Role).includes(body.role as Role) ? body.role as Role : Role.CITIZEN;
       if (requestedRole === Role.SUPER_ADMIN && actor.role !== Role.SUPER_ADMIN) throw new Error("FORBIDDEN");
+      if (requestedRole === Role.ADMIN && actor.role !== Role.SUPER_ADMIN) throw new Error("FORBIDDEN");
       if (await prisma.user.findUnique({ where: { email }, select: { id: true } })) return json({ error: "البريد الإلكتروني مستخدم بالفعل" }, 409);
-      const created = await prisma.user.create({ data: { municipalityId: municipality.id, name: body.name.trim().slice(0, 120), email, phone: typeof body.phone === "string" ? body.phone.slice(0, 40) : "", role: requestedRole, passwordHash: await hash(password, 12) }, select: { id: true, name: true, email: true, role: true, isActive: true, createdAt: true } });
+      const created = await prisma.user.create({ data: { municipalityId: requestedRole === Role.SUPER_ADMIN ? null : municipality.id, name: body.name.trim().slice(0, 120), email, phone: typeof body.phone === "string" ? body.phone.slice(0, 40) : "", role: requestedRole, passwordHash: await hash(password, 12) }, select: { id: true, name: true, email: true, role: true, isActive: true, createdAt: true } });
       await audit({ municipalityId: municipality.id, actorId: actor.id, action: "CREATE", entity: "User", entityId: created.id });
       return NextResponse.json({ data: created }, { status: 201 });
     }
